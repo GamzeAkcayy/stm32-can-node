@@ -1,0 +1,19 @@
+# Build outputs
+Debug/
+Release/
+*.elf
+*.hex
+*.bin
+*.map
+*.o
+*.d
+*.su
+
+# IDE specific
+.settings/
+.project
+.cproject
+
+# OS files
+.DS_Store
+Thumbs.db
