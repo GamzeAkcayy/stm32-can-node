@@ -8,6 +8,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_CAN1_Init(void);
 
+
 int main(void)
 {
   /* HAL Kütüphanesini ve Sistem Saatini Başlat */
@@ -16,36 +17,46 @@ int main(void)
 
   /* Sadece İhtiyacımız Olan Birimleri İlklendir */
   MX_GPIO_Init();
-  MX_CAN1_Init();
+  MX_CAN1_Init(); // Bu fonksiyon içeriden otomatik olarak HAL_CAN_MspInit'i çağıracaktır
 
   /* USER CODE BEGIN 2 */
-    CAN_FilterTypeDef  sFilterConfig;
+  CAN_FilterTypeDef  sFilterConfig;
 
-    // ... filtre ayarları aynı kalsın ...
+  // Filtre Yapılandırması (Açık Kapı Filtresi - Tüm mesajları kabul eder)
+  sFilterConfig.FilterBank = 0;
+  sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
+  sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
+  sFilterConfig.FilterIdHigh = 0x0000;
+  sFilterConfig.FilterIdLow = 0x0000;
+  sFilterConfig.FilterMaskIdHigh = 0x0000;
+  sFilterConfig.FilterMaskIdLow = 0x0000;
+  sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
+  sFilterConfig.FilterActivation = ENABLE;
+  sFilterConfig.SlaveStartFilterBank = 14;
 
-    // TEST 1: Eğer filtre yapılandırması patlıyorsa LED SABİT YANSIN
-    if (HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig) != HAL_OK)
-    {
-      HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);
-      while(1);
+  // TEST 1: Eğer filtre yapılandırması patlıyorsa LED SABİT YANSIN
+  if (HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig) != HAL_OK)
+  {
+    HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);
+    while(1);
+  }
+
+  // TEST 2: Eğer CAN başlatma patlıyorsa LED HIZLI HIZLI ÇAKSIN
+  if (HAL_CAN_Start(&hcan1) != HAL_OK)
+  {
+    while(1) {
+        HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
+        HAL_Delay(100);
     }
+  }
 
-    // TEST 2: Eğer CAN başlatma patlıyorsa LED HIZLI HIZLI ÇAKSIN
-    if (HAL_CAN_Start(&hcan1) != HAL_OK)
-    {
-      while(1) {
-          HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
-          HAL_Delay(100);
-      }
-    }
-
-    // TEST 3: Eğer kesme (Notification) patlıyorsa LED TAMAMEN SÖNSÜN
-    if (HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING) != HAL_OK)
-    {
-      HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET);
-      while(1);
-    }
-    /* USER CODE END 2 */
+  // TEST 3: Eğer kesme (Notification) patlıyorsa LED TAMAMEN SÖNSÜN
+  if (HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING) != HAL_OK)
+  {
+    HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET);
+    while(1);
+  }
+  /* USER CODE END 2 */
 
   /* USER CODE BEGIN WHILE - CAN Gönderim Yapılandırması */
   CAN_TxHeaderTypeDef TxHeader;
@@ -58,13 +69,16 @@ int main(void)
   TxHeader.DLC = 8;
   TxHeader.TransmitGlobalTime = DISABLE;
 
+  // Başlangıçta yeşil ledi söndürerek temiz bir başlangıç yapalım
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET);
+
   while (1)
   {
     /* USER CODE END WHILE */
     /* USER CODE BEGIN 3 */
     if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) == HAL_OK)
     {
-        HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12); // Başarılıysa Yeşil LED durum değiştirir
+        HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12); // Gönderim başarılıysa Yeşil LED saniyede bir durum değiştirir
     }
 
     HAL_Delay(1000);
