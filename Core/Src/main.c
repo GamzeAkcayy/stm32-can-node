@@ -2,7 +2,9 @@
 
 /* Sadece İhtiyacımız Olan Donanım Handler Yapısı */
 CAN_HandleTypeDef hcan1;
-
+/* Global CAN Yapıları */
+CAN_RxHeaderTypeDef RxHeader;
+uint8_t RxData[8];
 /* Sistem Fonksiyon Prototipleri */
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
@@ -148,19 +150,50 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET);
+  /* Tüm LED pinlerini başlangıçta söndür (PD12, PD13, PD14, PD15) */
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15, GPIO_PIN_RESET);
 
-  GPIO_InitStruct.Pin = GPIO_PIN_12;
+  /* LED Pin Yapılandırması */
+  GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 }
-
 void Error_Handler(void)
 {
   __disable_irq();
   while (1)
   {
+  }
+}
+/* CAN Mesajı Geldiğinde Tetiklenecek Kesme Fonksiyonu */
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+  /* FIFO0'dan gelen mesajı oku */
+  if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK)
+  {
+    /* Eğer gelen mesajın ID'si 0x321 ise */
+    if (RxHeader.StdId == 0x321)
+    {
+      /* Gelen verinin ilk byte'ına göre LED'leri kontrol et */
+      if (RxData[0] == 0x01)
+      {
+        HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);   // Turuncu LED yansın
+      }
+      else if (RxData[0] == 0x02)
+      {
+        HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET);   // Kırmızı LED yansın
+      }
+      else if (RxData[0] == 0x03)
+      {
+        HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, GPIO_PIN_SET);   // Mavi LED yansın
+      }
+      else if (RxData[0] == 0x00)
+      {
+        /* Hepsini söndür */
+        HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15, GPIO_PIN_RESET);
+      }
+    }
   }
 }
