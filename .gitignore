@@ -1,6 +1,6 @@
-Debug/
+stm32_node/Debug/
+stm32_node/*.launch
 *.o
 *.d
 *.su
-*.launch
 .settings/
