@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
@@ -60,6 +61,35 @@ int main(void)
 
   // CAN Filtre Yapılandırması (Gelen her mesajı kabul et)
   CAN_FilterTypeDef sFilterConfig;
+=======
+#include "main.h"
+
+/* Sadece İhtiyacımız Olan Donanım Handler Yapısı */
+CAN_HandleTypeDef hcan1;
+/* Global CAN Yapıları */
+CAN_RxHeaderTypeDef RxHeader;
+uint8_t RxData[8];
+/* Sistem Fonksiyon Prototipleri */
+void SystemClock_Config(void);
+static void MX_GPIO_Init(void);
+static void MX_CAN1_Init(void);
+
+
+int main(void)
+{
+  /* HAL Kütüphanesini ve Sistem Saatini Başlat */
+  HAL_Init();
+  SystemClock_Config();
+
+  /* Sadece İhtiyacımız Olan Birimleri İlklendir */
+  MX_GPIO_Init();
+  MX_CAN1_Init(); // Bu fonksiyon içeriden otomatik olarak HAL_CAN_MspInit'i çağıracaktır
+
+  /* USER CODE BEGIN 2 */
+  CAN_FilterTypeDef  sFilterConfig;
+
+  // Filtre Yapılandırması (Açık Kapı Filtresi - Tüm mesajları kabul eder)
+>>>>>>> 0eafb85c3fd6f85812be23a3e1916ad37b9b1923
   sFilterConfig.FilterBank = 0;
   sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
   sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
@@ -71,6 +101,7 @@ int main(void)
   sFilterConfig.FilterActivation = ENABLE;
   sFilterConfig.SlaveStartFilterBank = 14;
 
+<<<<<<< HEAD
   if (HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig) != HAL_OK)
   {
       Error_Handler();
@@ -134,6 +165,58 @@ int main(void)
 
         // HAL_Delay(1000); // <--- BU KATİLİ TAMAMEN SİLDİK, ARTIK İŞLEMCİ UYUMUYOR!
     }
+=======
+  // TEST 1: Eğer filtre yapılandırması patlıyorsa LED SABİT YANSIN
+  if (HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig) != HAL_OK)
+  {
+    HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);
+    while(1);
+  }
+
+  // TEST 2: Eğer CAN başlatma patlıyorsa LED HIZLI HIZLI ÇAKSIN
+  if (HAL_CAN_Start(&hcan1) != HAL_OK)
+  {
+    while(1) {
+        HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
+        HAL_Delay(100);
+    }
+  }
+
+  // TEST 3: Eğer kesme (Notification) patlıyorsa LED TAMAMEN SÖNSÜN
+  if (HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING) != HAL_OK)
+  {
+    HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET);
+    while(1);
+  }
+  /* USER CODE END 2 */
+
+  /* USER CODE BEGIN WHILE - CAN Gönderim Yapılandırması */
+  CAN_TxHeaderTypeDef TxHeader;
+  uint8_t TxData[8] = {0xAA, 0xBB, 0xCC, 0xDD, 0x11, 0x22, 0x33, 0x44};
+  uint32_t TxMailbox;
+
+  TxHeader.StdId = 0x123;
+  TxHeader.RTR = CAN_RTR_DATA;
+  TxHeader.IDE = CAN_ID_STD;
+  TxHeader.DLC = 8;
+  TxHeader.TransmitGlobalTime = DISABLE;
+
+  // Başlangıçta yeşil ledi söndürerek temiz bir başlangıç yapalım
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET);
+
+  while (1)
+  {
+    /* USER CODE END WHILE */
+    /* USER CODE BEGIN 3 */
+    if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) == HAL_OK)
+    {
+        HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12); // Gönderim başarılıysa Yeşil LED saniyede bir durum değiştirir
+    }
+
+    HAL_Delay(1000);
+  }
+  /* USER CODE END 3 */
+>>>>>>> 0eafb85c3fd6f85812be23a3e1916ad37b9b1923
 }
 
 void SystemClock_Config(void)
@@ -173,7 +256,11 @@ void SystemClock_Config(void)
 static void MX_CAN1_Init(void)
 {
   hcan1.Instance = CAN1;
+<<<<<<< HEAD
   hcan1.Init.Prescaler = 12;
+=======
+  hcan1.Init.Prescaler = 6;
+>>>>>>> 0eafb85c3fd6f85812be23a3e1916ad37b9b1923
   hcan1.Init.Mode = CAN_MODE_NORMAL;
   hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
   hcan1.Init.TimeSeg1 = CAN_BS1_11TQ;
@@ -190,6 +277,7 @@ static void MX_CAN1_Init(void)
   }
 }
 
+<<<<<<< HEAD
 static void MX_I2S3_Init(void)
 {
   hi2s3.Instance = SPI3;
@@ -241,10 +329,13 @@ static void MX_USB_OTG_FS_HCD_Init(void)
   }
 }
 
+=======
+>>>>>>> 0eafb85c3fd6f85812be23a3e1916ad37b9b1923
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
 
+<<<<<<< HEAD
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
@@ -293,10 +384,22 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(CLK_IN_GPIO_Port, &GPIO_InitStruct);
 
   GPIO_InitStruct.Pin = LD4_Pin|LD3_Pin|LD5_Pin|LD6_Pin|Audio_RST_Pin;
+=======
+  __HAL_RCC_GPIOH_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
+
+  /* Tüm LED pinlerini başlangıçta söndür (PD12, PD13, PD14, PD15) */
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15, GPIO_PIN_RESET);
+
+  /* LED Pin Yapılandırması */
+  GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15;
+>>>>>>> 0eafb85c3fd6f85812be23a3e1916ad37b9b1923
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+<<<<<<< HEAD
 
   GPIO_InitStruct.Pin = OTG_FS_OverCurrent_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
@@ -329,6 +432,9 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 }
 /* USER CODE END 4 */
 
+=======
+}
+>>>>>>> 0eafb85c3fd6f85812be23a3e1916ad37b9b1923
 void Error_Handler(void)
 {
   __disable_irq();
@@ -336,3 +442,36 @@ void Error_Handler(void)
   {
   }
 }
+<<<<<<< HEAD
+=======
+/* CAN Mesajı Geldiğinde Tetiklenecek Kesme Fonksiyonu */
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+  /* FIFO0'dan gelen mesajı oku */
+  if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK)
+  {
+    /* Eğer gelen mesajın ID'si 0x321 ise */
+    if (RxHeader.StdId == 0x321)
+    {
+      /* Gelen verinin ilk byte'ına göre LED'leri kontrol et */
+      if (RxData[0] == 0x01)
+      {
+        HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);   // Turuncu LED yansın
+      }
+      else if (RxData[0] == 0x02)
+      {
+        HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET);   // Kırmızı LED yansın
+      }
+      else if (RxData[0] == 0x03)
+      {
+        HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, GPIO_PIN_SET);   // Mavi LED yansın
+      }
+      else if (RxData[0] == 0x00)
+      {
+        /* Hepsini söndür */
+        HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15, GPIO_PIN_RESET);
+      }
+    }
+  }
+}
+>>>>>>> 0eafb85c3fd6f85812be23a3e1916ad37b9b1923

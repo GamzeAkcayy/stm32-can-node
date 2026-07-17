@@ -93,8 +93,11 @@ void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan)
 
     /* USER CODE END CAN1_MspInit 0 */
     /* Peripheral clock enable */
+<<<<<<< HEAD
 	  HAL_NVIC_SetPriority(CAN1_RX0_IRQn, 0, 0);
 	  HAL_NVIC_EnableIRQ(CAN1_RX0_IRQn);
+=======
+>>>>>>> 0eafb85c3fd6f85812be23a3e1916ad37b9b1923
     __HAL_RCC_CAN1_CLK_ENABLE();
 
     __HAL_RCC_GPIOB_CLK_ENABLE();
@@ -109,6 +112,12 @@ void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan)
     GPIO_InitStruct.Alternate = GPIO_AF9_CAN1;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+<<<<<<< HEAD
+=======
+    /* CAN1 interrupt Init */
+    HAL_NVIC_SetPriority(CAN1_RX0_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(CAN1_RX0_IRQn);
+>>>>>>> 0eafb85c3fd6f85812be23a3e1916ad37b9b1923
     /* USER CODE BEGIN CAN1_MspInit 1 */
 
     /* USER CODE END CAN1_MspInit 1 */
@@ -139,6 +148,11 @@ void HAL_CAN_MspDeInit(CAN_HandleTypeDef* hcan)
     */
     HAL_GPIO_DeInit(GPIOB, GPIO_PIN_8|GPIO_PIN_9);
 
+<<<<<<< HEAD
+=======
+    /* CAN1 interrupt DeInit */
+    HAL_NVIC_DisableIRQ(CAN1_RX0_IRQn);
+>>>>>>> 0eafb85c3fd6f85812be23a3e1916ad37b9b1923
     /* USER CODE BEGIN CAN1_MspDeInit 1 */
 
     /* USER CODE END CAN1_MspDeInit 1 */
@@ -306,6 +320,7 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi)
 
 }
 
+<<<<<<< HEAD
 /**
   * @brief HCD MSP Initialization
   * This function configures the hardware resources used in this example
@@ -386,6 +401,8 @@ void HAL_HCD_MspDeInit(HCD_HandleTypeDef* hhcd)
 
 }
 
+=======
+>>>>>>> 0eafb85c3fd6f85812be23a3e1916ad37b9b1923
 /* USER CODE BEGIN 1 */
 
 /* USER CODE END 1 */

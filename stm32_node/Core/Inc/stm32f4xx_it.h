@@ -55,6 +55,10 @@ void SVC_Handler(void);
 void DebugMon_Handler(void);
 void PendSV_Handler(void);
 void SysTick_Handler(void);
+<<<<<<< HEAD
+=======
+void CAN1_RX0_IRQHandler(void);
+>>>>>>> 0eafb85c3fd6f85812be23a3e1916ad37b9b1923
 void OTG_FS_IRQHandler(void);
 /* USER CODE BEGIN EFP */
 
