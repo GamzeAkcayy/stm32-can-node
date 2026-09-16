@@ -4,3 +4,4 @@ stm32_node/*.launch
 *.d
 *.su
 .settings/
+Debug/
