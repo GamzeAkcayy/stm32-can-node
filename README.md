@@ -47,4 +47,4 @@ This testbench simulates an automotive/industrial distributed network:
 - [x] End-to-end periodic telemetry transmission (STM32 TX -> Pi SocketCAN RX).
 - [x] C++ SocketCAN deserialization engine.
 - [ ] Kernel-level hardware acceptance filtering (`can_filter`).
-- [ ] Bidirectional control loop (Pi command frames `0x200` to STM32 RX interrupt).
+- [x] Bidirectional control loop (Pi command frames `0x200` to STM32 RX interrupt).
