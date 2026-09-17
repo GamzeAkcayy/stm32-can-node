@@ -93,11 +93,6 @@ void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan)
 
     /* USER CODE END CAN1_MspInit 0 */
     /* Peripheral clock enable */
-<<<<<<< HEAD
-	  HAL_NVIC_SetPriority(CAN1_RX0_IRQn, 0, 0);
-	  HAL_NVIC_EnableIRQ(CAN1_RX0_IRQn);
-=======
->>>>>>> 0eafb85c3fd6f85812be23a3e1916ad37b9b1923
     __HAL_RCC_CAN1_CLK_ENABLE();
 
     __HAL_RCC_GPIOB_CLK_ENABLE();
@@ -112,12 +107,9 @@ void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan)
     GPIO_InitStruct.Alternate = GPIO_AF9_CAN1;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-<<<<<<< HEAD
-=======
     /* CAN1 interrupt Init */
     HAL_NVIC_SetPriority(CAN1_RX0_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(CAN1_RX0_IRQn);
->>>>>>> 0eafb85c3fd6f85812be23a3e1916ad37b9b1923
     /* USER CODE BEGIN CAN1_MspInit 1 */
 
     /* USER CODE END CAN1_MspInit 1 */
@@ -148,11 +140,8 @@ void HAL_CAN_MspDeInit(CAN_HandleTypeDef* hcan)
     */
     HAL_GPIO_DeInit(GPIOB, GPIO_PIN_8|GPIO_PIN_9);
 
-<<<<<<< HEAD
-=======
     /* CAN1 interrupt DeInit */
     HAL_NVIC_DisableIRQ(CAN1_RX0_IRQn);
->>>>>>> 0eafb85c3fd6f85812be23a3e1916ad37b9b1923
     /* USER CODE BEGIN CAN1_MspDeInit 1 */
 
     /* USER CODE END CAN1_MspDeInit 1 */
@@ -320,89 +309,6 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi)
 
 }
 
-<<<<<<< HEAD
-/**
-  * @brief HCD MSP Initialization
-  * This function configures the hardware resources used in this example
-  * @param hhcd: HCD handle pointer
-  * @retval None
-  */
-void HAL_HCD_MspInit(HCD_HandleTypeDef* hhcd)
-{
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-  if(hhcd->Instance==USB_OTG_FS)
-  {
-    /* USER CODE BEGIN USB_OTG_FS_MspInit 0 */
-
-    /* USER CODE END USB_OTG_FS_MspInit 0 */
-
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    /**USB_OTG_FS GPIO Configuration
-    PA9     ------> USB_OTG_FS_VBUS
-    PA10     ------> USB_OTG_FS_ID
-    PA11     ------> USB_OTG_FS_DM
-    PA12     ------> USB_OTG_FS_DP
-    */
-    GPIO_InitStruct.Pin = VBUS_FS_Pin;
-    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(VBUS_FS_GPIO_Port, &GPIO_InitStruct);
-
-    GPIO_InitStruct.Pin = OTG_FS_ID_Pin|OTG_FS_DM_Pin|OTG_FS_DP_Pin;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    GPIO_InitStruct.Alternate = GPIO_AF10_OTG_FS;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-    /* Peripheral clock enable */
-    __HAL_RCC_USB_OTG_FS_CLK_ENABLE();
-    /* USB_OTG_FS interrupt Init */
-    HAL_NVIC_SetPriority(OTG_FS_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(OTG_FS_IRQn);
-    /* USER CODE BEGIN USB_OTG_FS_MspInit 1 */
-
-    /* USER CODE END USB_OTG_FS_MspInit 1 */
-
-  }
-
-}
-
-/**
-  * @brief HCD MSP De-Initialization
-  * This function freeze the hardware resources used in this example
-  * @param hhcd: HCD handle pointer
-  * @retval None
-  */
-void HAL_HCD_MspDeInit(HCD_HandleTypeDef* hhcd)
-{
-  if(hhcd->Instance==USB_OTG_FS)
-  {
-    /* USER CODE BEGIN USB_OTG_FS_MspDeInit 0 */
-
-    /* USER CODE END USB_OTG_FS_MspDeInit 0 */
-    /* Peripheral clock disable */
-    __HAL_RCC_USB_OTG_FS_CLK_DISABLE();
-
-    /**USB_OTG_FS GPIO Configuration
-    PA9     ------> USB_OTG_FS_VBUS
-    PA10     ------> USB_OTG_FS_ID
-    PA11     ------> USB_OTG_FS_DM
-    PA12     ------> USB_OTG_FS_DP
-    */
-    HAL_GPIO_DeInit(GPIOA, VBUS_FS_Pin|OTG_FS_ID_Pin|OTG_FS_DM_Pin|OTG_FS_DP_Pin);
-
-    /* USB_OTG_FS interrupt DeInit */
-    HAL_NVIC_DisableIRQ(OTG_FS_IRQn);
-    /* USER CODE BEGIN USB_OTG_FS_MspDeInit 1 */
-
-    /* USER CODE END USB_OTG_FS_MspDeInit 1 */
-  }
-
-}
-
-=======
->>>>>>> 0eafb85c3fd6f85812be23a3e1916ad37b9b1923
 /* USER CODE BEGIN 1 */
 
 /* USER CODE END 1 */

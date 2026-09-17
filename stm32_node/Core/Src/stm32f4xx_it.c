@@ -60,10 +60,7 @@ extern CAN_HandleTypeDef hcan1;
 
 /* External variables --------------------------------------------------------*/
 extern HCD_HandleTypeDef hhcd_USB_OTG_FS;
-<<<<<<< HEAD
-=======
 extern CAN_HandleTypeDef hcan1;
->>>>>>> 0eafb85c3fd6f85812be23a3e1916ad37b9b1923
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -207,8 +204,6 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /**
-<<<<<<< HEAD
-=======
   * @brief This function handles CAN1 RX0 interrupts.
   */
 void CAN1_RX0_IRQHandler(void)
@@ -223,7 +218,6 @@ void CAN1_RX0_IRQHandler(void)
 }
 
 /**
->>>>>>> 0eafb85c3fd6f85812be23a3e1916ad37b9b1923
   * @brief This function handles USB On The Go FS global interrupt.
   */
 void OTG_FS_IRQHandler(void)
