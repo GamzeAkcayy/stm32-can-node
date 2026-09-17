@@ -1,80 +1,114 @@
 #include <iostream>
+#include <string>
 #include <thread>
 #include <atomic>
-#include <chrono>
-#include "SocketCAN.h"
-#include "CANParser.h"
+#include <cstring>
+#include <unistd.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <linux/can.h>
+#include <linux/can/raw.h>
 
-std::atomic<bool> running(true);
+std::atomic<bool> isRunning(true);
 
-// CAN hattını arka planda kesintisiz dinleyen thread
-void receiveThreadFunc(SocketCAN* can) {
-    can_frame frame;
-    TelemetryData telemetry;
+int openCanSocket(const char* ifname) {
+    int s = socket(PF_CAN, SOCK_RAW, CAN_RAW);
+    if (s < 0) {
+        perror("Socket olusturulamadi");
+        return -1;
+    }
 
-    while (running) {
-        if (can->receiveFrame(frame)) {
-            // Sadece STM32'den gelen telemetrileri çöz, ekrana bas
-            if (frame.can_id == 0x103) {
-                CANParser::parseTelemetry(frame, telemetry);
-            }
+    struct ifreq ifr;
+    std::strcpy(ifr.ifr_name, ifname);
+    if (ioctl(s, SIOCGIFINDEX, &ifr) < 0) {
+        perror("SIOCGIFINDEX hatasi");
+        close(s);
+        return -1;
+    }
+
+    struct sockaddr_can addr;
+    std::memset(&addr, 0, sizeof(addr));
+    addr.can_family = AF_CAN;
+    addr.can_ifindex = ifr.ifr_ifindex;
+
+    if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        perror("Bind hatasi");
+        close(s);
+        return -1;
+    }
+
+    return s;
+}
+
+void receiverThread(int socketFd) {
+    struct can_frame frame;
+    while (isRunning) {
+        int nbytes = read(socketFd, &frame, sizeof(struct can_frame));
+        if (nbytes < 0) {
+            if (!isRunning) break;
+            perror("CAN Okuma Hatasi");
+            break;
         }
-        // İşlemciyi sömürmesin diye çok küçük bir uyku (1ms)
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+        if (frame.can_id == 0x100 && frame.can_dlc >= 2) {
+            uint8_t temp = frame.data[0];
+            uint8_t counter = frame.data[1];
+            std::cout << "\n[TELEMETRY RX] ID: 0x100 | Temp: " 
+                      << static_cast<int>(temp) << " C | Counter: " 
+                      << static_cast<int>(counter) << std::endl;
+            std::cout << "Komut girin ('t' = Toggle LED, 'q' = Cikis): " << std::flush;
+        }
+    }
+}
+
+void senderThread(int socketFd) {
+    std::string input;
+    std::cout << "Komut girin ('t' = Toggle LED, 'q' = Cikis): " << std::flush;
+    
+    while (isRunning && std::cin >> input) {
+        if (input == "t" || input == "1") {
+            struct can_frame txFrame;
+            txFrame.can_id = 0x200;
+            txFrame.can_dlc = 8;
+            std::memset(txFrame.data, 0, 8);
+            txFrame.data[0] = 0x01;
+
+            int nbytes = write(socketFd, &txFrame, sizeof(struct can_frame));
+            if (nbytes != sizeof(struct can_frame)) {
+                std::cerr << "\n[HATA] Komut cercevesi gonderilemedi!" << std::endl;
+            } else {
+                std::cout << "\n[COMMAND TX] 0x200 gonderildi -> STM32 LED Toggle tetiklendi." << std::endl;
+            }
+        } else if (input == "q") {
+            isRunning = false;
+            break;
+        } else {
+            std::cout << "\nBilinmeyen komut. 't' (Toggle) veya 'q' (Cikis) kullanin." << std::endl;
+        }
+        std::cout << "Komut girin ('t' = Toggle LED, 'q' = Cikis): " << std::flush;
     }
 }
 
 int main() {
-    SocketCAN can("can0");
-
-    if (!can.connect()) {
-        std::cerr << "Soket baglantisi basarisiz oldu! can0 kapali olabilir." << std::endl;
+    const char* can_interface = "can0";
+    int socketFd = openCanSocket(can_interface);
+    if (socketFd < 0) {
         return 1;
     }
 
-    std::cout << "can0 baglandi. Kontrol Paneli Aktif!" << std::endl;
-    std::cout << "Komutlar: [1 + Enter] -> LED Yak | [0 + Enter] -> LED Kapat | [q + Enter] -> Cikis" << std::endl;
-    std::cout << "------------------------------------------------------------------" << std::endl;
+    std::cout << "=== STM32 - Raspberry Pi CAN Kontrol Paneli Baslatildi ===" << std::endl;
 
-    // Dinleme thread'ini ateşle
-    std::thread rxThread(receiveThreadFunc, &can);
+    std::thread rxWorker(receiverThread, socketFd);
+    std::thread txWorker(senderThread, socketFd);
 
-    std::string input;
-    while (running) {
-        std::cin >> input; // Karakter yerine string alarak buffer kaymalarını önlüyoruz
-
-        if (input == "q" || input == "Q") {
-            running = false;
-            break;
-        }
-
-        can_frame txFrame;
-        txFrame.can_id = 0x201; // STM32'nin beklediği komut ID'si
-        txFrame.can_dlc = 1;    // 1 bayt veri
-
-        if (input == "1") {
-            txFrame.data[0] = 0x01; // LED_ON
-            if (can.sendFrame(txFrame)) {
-                std::cout << ">>> [PI -> STM32] KOMUT GÖNDERİLDİ: Turuncu/Mavi LED AÇ (0x01)" << std::endl;
-            } else {
-                std::cerr << "!!! Paket gönderim hatası!" << std::endl;
-            }
-        } 
-        else if (input == "0") {
-            txFrame.data[0] = 0x00; // LED_OFF
-            if (can.sendFrame(txFrame)) {
-                std::cout << ">>> [PI -> STM32] KOMUT GÖNDERİLDİ: Turuncu/Mavi LED KAPAT (0x00)" << std::endl;
-            } else {
-                std::cerr << "!!! Paket gönderim hatası!" << std::endl;
-            }
-        }
+    txWorker.join();
+    isRunning = false;
+    close(socketFd);
+    if (rxWorker.joinable()) {
+        rxWorker.join();
     }
 
-    // Kapanış
-    running = false;
-    if (rxThread.joinable()) {
-        rxThread.join();
-    }
-    can.disconnect();
+    std::cout << "Program sonlandirildi." << std::endl;
     return 0;
 }
