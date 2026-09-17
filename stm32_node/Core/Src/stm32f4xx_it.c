@@ -22,10 +22,6 @@
 #include "stm32f4xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-<<<<<<< HEAD
-extern CAN_HandleTypeDef hcan1;
-=======
->>>>>>> 0eafb85c3fd6f85812be23a3e1916ad37b9b1923
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -59,7 +55,7 @@ extern CAN_HandleTypeDef hcan1;
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern HCD_HandleTypeDef hhcd_USB_OTG_FS;
+extern PCD_HandleTypeDef hpcd_USB_OTG_FS;
 extern CAN_HandleTypeDef hcan1;
 /* USER CODE BEGIN EV */
 
@@ -225,19 +221,12 @@ void OTG_FS_IRQHandler(void)
   /* USER CODE BEGIN OTG_FS_IRQn 0 */
 
   /* USER CODE END OTG_FS_IRQn 0 */
-  HAL_HCD_IRQHandler(&hhcd_USB_OTG_FS);
+  HAL_PCD_IRQHandler(&hpcd_USB_OTG_FS);
   /* USER CODE BEGIN OTG_FS_IRQn 1 */
 
   /* USER CODE END OTG_FS_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */
-<<<<<<< HEAD
-void CAN1_RX0_IRQHandler(void)
-{
-    HAL_CAN_IRQHandler(&hcan1);
-}
-=======
 
->>>>>>> 0eafb85c3fd6f85812be23a3e1916ad37b9b1923
 /* USER CODE END 1 */

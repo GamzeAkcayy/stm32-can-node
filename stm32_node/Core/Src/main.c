@@ -8,11 +8,59 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "usb_host.h"
+#include "usb_device.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "stm32f4xx_hal_can.h"
+#include <string.h>
+#include <stdint.h>
+
+#define FRAME_SOF1 0xAA
+#define FRAME_SOF2 0x55
+#define MAX_PAYLOAD_SIZE 10
+
+// 1. Zarf (Paket) Yapımız - Tam 16 Byte
+typedef struct __attribute__((packed)) {
+    uint8_t  sof1;                       // 0xAA (Başlangıç 1)
+    uint8_t  sof2;                       // 0x55 (Başlangıç 2)
+    uint8_t  msg_id;                     // Paket Tipi (0x01 = Telemetri)
+    uint8_t  payload_len;                // Gerçek veri uzunluğu (8 Byte)
+    uint8_t  payload[MAX_PAYLOAD_SIZE];  // Ham veri alanı
+    uint16_t crc16;                      // Yolda bozulma var mı mührü
+} TelemetryFrame_t;
+
+// 2. CRC16 Mühür Hesaplama Fonksiyonu
+uint16_t calculate_crc16(const uint8_t *data, uint16_t length) {
+    uint16_t crc = 0xFFFF;
+    for (uint16_t i = 0; i < length; i++) {
+        crc ^= data[i];
+        for (uint8_t j = 0; j < 8; j++) {
+            if (crc & 0x0001) {
+                crc = (crc >> 1) ^ 0xA001;
+            } else {
+                crc >>= 1;
+            }
+        }
+    }
+    return crc;
+}
+
+// 3. Paket Hazırlayıp UART'tan Gönderen Fonksiyon
+void send_telemetry_packet(UART_HandleTypeDef *huart, float temperature, uint32_t counter) {
+    TelemetryFrame_t frame;
+
+    frame.sof1 = FRAME_SOF1;
+    frame.sof2 = FRAME_SOF2;
+    frame.msg_id = 0x01;
+    frame.payload_len = sizeof(float) + sizeof(uint32_t); // 8 Byte
+
+    memcpy(&frame.payload[0], &temperature, sizeof(float));
+    memcpy(&frame.payload[4], &counter, sizeof(uint32_t));
+
+    frame.crc16 = calculate_crc16((uint8_t*)&frame, sizeof(TelemetryFrame_t) - 2);
+
+    HAL_UART_Transmit(huart, (uint8_t*)&frame, sizeof(TelemetryFrame_t), HAL_MAX_DELAY);
+}
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -37,24 +85,26 @@ I2S_HandleTypeDef hi2s3;
 
 SPI_HandleTypeDef hspi1;
 
-/* USER CODE BEGIN PV */
-CAN_TxHeaderTypeDef   TxHeader;
-uint8_t               TxData[8];
-uint32_t              TxMailbox;
+UART_HandleTypeDef huart1;
 
-volatile uint8_t CAN_Rx_Flag = 0; // Yeni mesaj geldiğinde 1 olacak
-CAN_RxHeaderTypeDef Global_RxHeader;
-uint8_t Global_RxData[8];
+/* USER CODE BEGIN PV */
+/* USER CODE BEGIN PV */
+uint32_t packet_counter = 0;
+float simulated_temp = 25.0f;
+
+// CAN İletişim Değişkenleri
+CAN_TxHeaderTypeDef TxHeader;
+uint8_t TxData[8];
+uint32_t TxMailbox;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_CAN1_Init(void);
 static void MX_I2S3_Init(void);
 static void MX_SPI1_Init(void);
-void MX_USB_HOST_Process(void);
-
+static void MX_USART1_UART_Init(void);
+static void MX_CAN1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -93,97 +143,74 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_CAN1_Init();
   MX_I2S3_Init();
   MX_SPI1_Init();
-  MX_USB_HOST_Init();
+  MX_USART1_UART_Init();
+  MX_USB_DEVICE_Init();
+  MX_CAN1_Init();
   /* USER CODE BEGIN 2 */
-  // CAN Tx Başlık Ayarları
-  TxHeader.DLC = 8;
-  TxHeader.IDE = CAN_ID_STD;
-  TxHeader.RTR = CAN_RTR_DATA;
-  TxHeader.StdId = 0x103;
-  TxHeader.TransmitGlobalTime = DISABLE;
+    // 1. CAN Donanımını Çalıştır
+    if (HAL_CAN_Start(&hcan1) != HAL_OK)
+    {
+        Error_Handler();
+    }
 
-  // CAN Filtre Yapılandırması (Gelen her mesajı kabul et)
-  CAN_FilterTypeDef sFilterConfig;
-=======
-#include "main.h"
+    // 2. Mesaj Başlığını (Header) Hazırla
+    TxHeader.StdId = 0x100;           // Pi'nin dinleyeceği ID
+    TxHeader.IDE   = CAN_ID_STD;      // Standart ID (11-bit)
+    TxHeader.RTR   = CAN_RTR_DATA;    // Veri çerçevesi
+    TxHeader.DLC   = 8;               // 8 Byte veri göndereceğiz
+    TxHeader.TransmitGlobalTime = DISABLE;
 
-/* Sadece İhtiyacımız Olan Donanım Handler Yapısı */
-CAN_HandleTypeDef hcan1;
-/* Global CAN Yapıları */
-CAN_RxHeaderTypeDef RxHeader;
-uint8_t RxData[8];
-/* Sistem Fonksiyon Prototipleri */
-void SystemClock_Config(void);
-static void MX_GPIO_Init(void);
-static void MX_CAN1_Init(void);
+    CAN_FilterTypeDef sFilterConfig;
 
+    sFilterConfig.FilterBank = 0;
+    sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
+    sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
+    sFilterConfig.FilterIdHigh = 0x200 << 5;          // Dinlenecek ID: 0x200 (Standart 11-bit sola kaydırılır)
+    sFilterConfig.FilterIdLow = 0x0000;
+    sFilterConfig.FilterMaskIdHigh = 0xFFE0;          // Tam eşleşme maskesi (0x7FF << 5)
+    sFilterConfig.FilterMaskIdLow = 0x0000;
+    sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
+    sFilterConfig.FilterActivation = ENABLE;
+    sFilterConfig.SlaveStartFilterBank = 14;
 
-int main(void)
-{
-  /* HAL Kütüphanesini ve Sistem Saatini Başlat */
-  HAL_Init();
-  SystemClock_Config();
+    if (HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig) != HAL_OK) {
+        Error_Handler();
+    }
 
-  /* Sadece İhtiyacımız Olan Birimleri İlklendir */
-  MX_GPIO_Init();
-  MX_CAN1_Init(); // Bu fonksiyon içeriden otomatik olarak HAL_CAN_MspInit'i çağıracaktır
-
-  /* USER CODE BEGIN 2 */
-  CAN_FilterTypeDef  sFilterConfig;
-
-  // Filtre Yapılandırması (Açık Kapı Filtresi - Tüm mesajları kabul eder)
->>>>>>> 0eafb85c3fd6f85812be23a3e1916ad37b9b1923
-  sFilterConfig.FilterBank = 0;
-  sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
-  sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
-  sFilterConfig.FilterIdHigh = 0x0000;
-  sFilterConfig.FilterIdLow = 0x0000;
-  sFilterConfig.FilterMaskIdHigh = 0x0000;
-  sFilterConfig.FilterMaskIdLow = 0x0000;
-  sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
-  sFilterConfig.FilterActivation = ENABLE;
-  sFilterConfig.SlaveStartFilterBank = 14;
-
-<<<<<<< HEAD
-  if (HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig) != HAL_OK)
-  {
-      Error_Handler();
-  }
-
-  // Kesme Önceliklerini Ayarla (NVIC)
-  HAL_NVIC_SetPriority(CAN1_RX0_IRQn, 1, 0);
-  HAL_NVIC_EnableIRQ(CAN1_RX0_IRQn);
-
-  // ÖNCE CAN HATTINI BAŞLAT
-  if (HAL_CAN_Start(&hcan1) != HAL_OK)
-  {
-      Error_Handler();
-  }
-
-  // SONRA KESMEYİ AKTİF ET
-  if (HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING) != HAL_OK)
-  {
-      Error_Handler();
-  }
+    // CAN dinleme kesmesini aktif et
+    if (HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING) != HAL_OK) {
+        Error_Handler();
+    }
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
+      while (1)
+      {
+        simulated_temp += 0.2f;
+        if (simulated_temp > 45.0f) {
+            simulated_temp = 20.0f;
+        }
+        packet_counter++;
+
+        // Sıcaklığı (float) ilk 4 byte'a kopyala
+        memcpy(&TxData[0], &simulated_temp, sizeof(float));
+        // Sayacı (uint32_t) son 4 byte'a kopyala
+        memcpy(&TxData[4], &packet_counter, sizeof(uint32_t));
+
+        // CAN Hattına Gönder
+        if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) == HAL_OK)
+        {
+            // Başarılı iletimde Discovery kartındaki Yeşil LED yansın sönsün (PD12)
+            //HAL_GPIO_TogglePin(GPIOD, LD4_Pin);
+        }
+
+        HAL_Delay(500); // 500ms bekle
     /* USER CODE END WHILE */
-    MX_USB_HOST_Process();
 
     /* USER CODE BEGIN 3 */
-    if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) == HAL_OK)
-    {
-        HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12); // Gönderim başarılıysa Yeşil LED saniyede bir durum değiştirir
-    }
-
-    HAL_Delay(1000);
   }
   /* USER CODE END 3 */
 }
@@ -250,7 +277,7 @@ static void MX_CAN1_Init(void)
   /* USER CODE END CAN1_Init 1 */
   hcan1.Instance = CAN1;
   hcan1.Init.Prescaler = 6;
-  hcan1.Init.Mode = CAN_MODE_LOOPBACK;
+  hcan1.Init.Mode = CAN_MODE_NORMAL;
   hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
   hcan1.Init.TimeSeg1 = CAN_BS1_11TQ;
   hcan1.Init.TimeSeg2 = CAN_BS2_2TQ;
@@ -339,6 +366,39 @@ static void MX_SPI1_Init(void)
   /* USER CODE BEGIN SPI1_Init 2 */
 
   /* USER CODE END SPI1_Init 2 */
+
+}
+
+/**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
 
 }
 
@@ -449,13 +509,14 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
-{
-    if (hcan->Instance == CAN1)
-    {
-        if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &Global_RxHeader, Global_RxData) == HAL_OK)
-        {
-            CAN_Rx_Flag = 1;
+//kesme fonksiyonu
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
+    CAN_RxHeaderTypeDef rxHeader;
+    uint8_t rxData[8];
+
+    if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, rxData) == HAL_OK) {
+        if (rxHeader.StdId == 0x200 && rxData[0] == 0x01) {
+            HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13); // Turuncu LED
         }
     }
 }
