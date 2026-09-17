@@ -48,3 +48,15 @@ This testbench simulates an automotive/industrial distributed network:
 - [x] C++ SocketCAN deserialization engine.
 - [ ] Kernel-level hardware acceptance filtering (`can_filter`).
 - [x] Bidirectional control loop (Pi command frames `0x200` to STM32 RX interrupt).
+
+---
+
+## Verification & Live Execution Traces
+
+The end-to-end bidirectional communication and kernel-level socket filtering were validated on physical hardware:
+
+| Execution Phase | Hardware / SocketCAN Trace | Description |
+| :--- | :---: | :--- |
+| **1. Filtered Telemetry (RX)** | ![Telemetry RX](images/telemetry_rx.png) | Ingestion of periodic `0x100` telemetry frames dropped directly into user-space via Linux `CAN_RAW_FILTER`. |
+| **2. Actuator Trigger (TX)** | ![Command TX](images/command_tx.png) | User dispatches `t` over stdin; asynchronous `0x200` frame is transmitted to trigger the STM32 LED interrupt. |
+| **3. Clean Shutdown** | ![Clean Exit](images/program_exit.png) | Graceful exit on `q`; thread joins executed without hanging or dangling socket descriptors. |
