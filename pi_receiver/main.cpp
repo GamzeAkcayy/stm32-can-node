@@ -19,6 +19,19 @@ int openCanSocket(const char* ifname) {
         return -1;
     }
 
+    // --- KERNEL-LEVEL ACCEPTANCE FILTERING ---
+    // Sadece 0x100 ID'li telemetri paketlerini kabul et
+    struct can_filter rfilter[1];
+    rfilter[0].can_id   = 0x100;
+    rfilter[0].can_mask = CAN_SFF_MASK; // Standart 11-bit ID için kesin eşleşme (0x7FF)
+
+    if (setsockopt(s, SOL_CAN_RAW, CAN_RAW_FILTER, &rfilter, sizeof(rfilter)) < 0) {
+        perror("Kernel CAN Filtresi uygulanamadi");
+        close(s);
+        return -1;
+    }
+    // ----------------------------------------
+
     struct ifreq ifr;
     std::strcpy(ifr.ifr_name, ifname);
     if (ioctl(s, SIOCGIFINDEX, &ifr) < 0) {
@@ -51,10 +64,11 @@ void receiverThread(int socketFd) {
             break;
         }
 
-        if (frame.can_id == 0x100 && frame.can_dlc >= 2) {
+        // Kernel seviyesinde filtrelendiği için gelen her paket garanti 0x100'dür
+        if (frame.can_dlc >= 2) {
             uint8_t temp = frame.data[0];
             uint8_t counter = frame.data[1];
-            std::cout << "\n[TELEMETRY RX] ID: 0x100 | Temp: " 
+            std::cout << "\n[TELEMETRY RX (Filtered)] ID: 0x100 | Temp: " 
                       << static_cast<int>(temp) << " C | Counter: " 
                       << static_cast<int>(counter) << std::endl;
             std::cout << "Komut girin ('t' = Toggle LED, 'q' = Cikis): " << std::flush;
@@ -97,7 +111,7 @@ int main() {
         return 1;
     }
 
-    std::cout << "=== STM32 - Raspberry Pi CAN Kontrol Paneli Baslatildi ===" << std::endl;
+    std::cout << "=== STM32 - Raspberry Pi CAN Kontrol Paneli (Kernel Filter Active) ===" << std::endl;
 
     std::thread rxWorker(receiverThread, socketFd);
     std::thread txWorker(senderThread, socketFd);
